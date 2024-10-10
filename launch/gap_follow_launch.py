@@ -17,8 +17,8 @@ def generate_launch_description():
 
 	wall_node = Node(
 		package='gap_follow',
-		executable='gap_follow_node.py',
-		name='gap_follow_node',
+		executable='reactive_node.py',
+		name='reactive_node',
 		# name=LaunchConfiguration('student'),
 		output='screen',
 		parameters=[
