@@ -25,7 +25,7 @@ def generate_launch_description():
 			{'bubble': bubble},
 			{'maxvel': maxvel},
 		]
-    )
+	)
 
 	return LaunchDescription([
         wall_node,
