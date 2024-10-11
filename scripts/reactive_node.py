@@ -43,19 +43,20 @@ class ReactiveFollowGap(Node):
         highest_value = 3
         window = 5
 
-        # sliced_ranges = ranges[270:811]
-        
-        sliced = ranges[270:810]
-        # print(len(sliced))
-
         # 1. set value in 'ranges' to mean (over some window?) (what number)
         tmp = np.ones(window) / window
-        proc_ranges = np.convolve(sliced, tmp, mode='same')
+        proc_ranges = np.convolve(ranges, tmp, mode='same')
 
         # 2. reject high values 
-        proc_ranges[proc_ranges > highest_value] = 0
+        # proc_ranges[proc_ranges > highest_value] = 0
 
         # SET NANS AND INFS 
+
+        # set data behind to 0. [270:810]
+        proc_ranges[0:270] = 0
+        proc_ranges[810:1080] = 0
+
+
 
         return proc_ranges
 
@@ -112,12 +113,9 @@ class ReactiveFollowGap(Node):
                 max_start_index = current_start_index
                 max_end_index = len(free_space_ranges) - 1
         
-        # for debuging 
-        # print index 
-        # and the stuff in them 
         print(f"gap from index {max_start_index} to {max_end_index} with length {max_gap}.")
+        print(f"{max_start_index}: {free_space_ranges[max_start_index]} {max_end_index}:{free_space_ranges[max_end_index]}.")
         return (max_start_index, max_end_index)
-    
       
     
     def find_best_point(self, start_i, end_i, ranges):
@@ -126,22 +124,14 @@ class ReactiveFollowGap(Node):
 	    Naive: Choose the furthest point within ranges and go there
         """
         # check the passed are in range best_point = self.find_best_point(start_index, end_index, proc_ranges)
-
-        if start_i < 0 or end_i >= len(ranges) or start_i > end_i:
+        if start_i < 270 or end_i > 810 or start_i > end_i:
             return None
 
         naive = start_i + np.argmax(ranges[start_i:end_i + 1])
         # middle = (start_i + end_i) // 2  # choose the middle index?
-
         print(f"best point at {naive}")
         return naive
 
-    def disparity_extender(self, proc_ranges):
-        """ Apply the disparity extender algorithm to filter the LIDAR ranges. """
-
-    
-
-    
     def lidar_callback(self, data):
         """ Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
         """
@@ -150,37 +140,24 @@ class ReactiveFollowGap(Node):
         # preprocess range data 
         proc_ranges = self.preprocess_lidar(ranges)
 
-        # Filter ranges 
-
         #Find closest point to LiDAR
-        valid_ranges = proc_ranges[proc_ranges > 0] 
-        closest_index = np.argmin(valid_ranges)
+        # we WANT the index of the lowest non-zero value
+        # SO we change all the 0s to infinity, and then argmin THAT array. 
+        # the index's should be the same as proc_ranges array
+        searchable_arr = np.where(proc_ranges == 0, np.inf, proc_ranges)
+        closest_index = np.argmin(searchable_arr)
 
-        # # Eliminate all points inside 'bubble' (set them to zero) 
-        # # bubble surrounds closest point
-        # bubble_radius = .35
-        # # DRAW BUBBLE 
-        # # zero out everything in that bubble 
+        print(f"closest index: {closest_index}")
+        print(f"{closest_index}: {proc_ranges[closest_index]}")
 
-        # bubble = int(bubble_radius / data.angle_increment)  # Assuming angle resolution of 0.1 radians
-        # start_idx = max(0, closest_index - bubble)
-        # end_idx = min(len(proc_ranges), closest_index + bubble + 1)
-        # proc_ranges[start_idx:end_idx] = 0
-
-
-        # disparity extend 
-        # if succesive lidar scans have a large disparity, extend the walls 
-        threshold = 4   # the disparity threshold 
-        extend =  .14   # amount to extend the walls by 
-        # proc_ranges = self.disparity_extender(proc_ranges)
-        for i in range(1, len(proc_ranges)):
-            if abs(proc_ranges[i] - proc_ranges[i - 1]) > threshold:
-                closer_distance = np.min(proc_ranges[i], proc_ranges[i - 1])
-                farther_index = i if proc_ranges[i] > proc_ranges[i - 1] else i - 1
-                # overrite
-                for j in range(farther_index, min(farther_index + extend, len(proc_ranges))):
-                    if proc_ranges[j] > closer_distance:
-                        proc_ranges[j] = 0
+        #Eliminate all points inside 'bubble' (set them to zero) 
+        # bubble surrounds closest point
+        bubble_radius = .9
+        # DRAW BUBBLE 
+        bubble = int(bubble_radius / data.angle_increment) # how many scans to cover? 
+        start_idx = max(0, closest_index - bubble)
+        end_idx = min(810, closest_index + bubble + 1)
+        proc_ranges[start_idx:end_idx] = 0 # zero out everything in that bubble 
 
         #Find max length gap 
         start_index, end_index = self.find_max_gap(proc_ranges)
@@ -188,10 +165,18 @@ class ReactiveFollowGap(Node):
         #Find the best point in the gap 
         best_point = self.find_best_point(start_index, end_index, proc_ranges)
 
-        # Calculate the drive angle
-        angle = (data.angle_increment * (best_point + 270)) + data.angle_min
+        # chose middle point in largest gap 
 
-        velocity = 0.0
+        # disparity extend 
+        # if succesive lidar scans have a large disparity, extend the walls 
+
+
+        # Calculate the drive angle
+        angle = (data.angle_increment * best_point) + data.angle_min
+
+        velocity = 0.8
+
+
         #Publish Drive message
         drive_msg = AckermannDriveStamped()
         drive_msg.drive.steering_angle = angle 
