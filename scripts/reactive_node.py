@@ -39,8 +39,14 @@ class ReactiveFollowGap(Node):
             1.Setting each value to the mean over some window
             2.Rejecting high values (eg. > 3m)
         """
+        # not using highest_value right now
+        # why would you use highest value and set higher values to np.inf? 
+        # look at the top left corner moving clockwise for an example. 
+            # when it sights the longest distance as the corner it moves 
+            # towards the longest distance so it doesn't go around the bend. 
+            # this causes other problems of it running into a wall thus not using it. 
 
-        highest_value = 3
+        highest_value = 5.2
         window = 5
 
         # 1. set value in 'ranges' to mean (over some window?) (what number)
@@ -48,7 +54,7 @@ class ReactiveFollowGap(Node):
         proc_ranges = np.convolve(ranges, tmp, mode='same')
 
         # 2. reject high values 
-        # proc_ranges[proc_ranges > highest_value] = 0
+        # proc_ranges[proc_ranges > highest_value] = np.inf
 
         # SET NANS AND INFS 
 
@@ -56,43 +62,24 @@ class ReactiveFollowGap(Node):
         proc_ranges[0:270] = 0
         proc_ranges[810:1080] = 0
 
-
-
         return proc_ranges
 
-        """alg for max_gap"""
-        # largest number of consequitive non-zero 
-        # iterate over the array 
-        # positive spaces are free 
-
-        # for i in free space range 
-            # if free space (distance positive)
-                # if a gap isn't started
-                    # start gap here 
-                # else add to gap length
-
-            # else gap ended
-                # check the length of the gap 
-                # if its larger than max gap length set 
-                    # max gap length 
-                    # max start 
-                    # max end
-                # reset current start 
-                # reset current gap length 
-        # edge case 
-        # return None
 
     def find_max_gap(self, free_space_ranges):
         """ Return the start index & end index of the max gap in free_space_ranges """
+        # this function finds the longest gap 
+        # if the space is free, meaning the distance ahead is non-zero, 
+        # we either start counting a gap or add to the gap length 
+        # if the gap is over, we decide if that gap was the largest
+
         max_gap = 0
         current_gap = 0
-        max_start_index = -1
-        max_end_index = -1
+        start_index = -1
+        end_index = -1
         current_start_index = None
-
         
         for i in range(len(free_space_ranges)):
-            if free_space_ranges[i] > .5:        # if space is free
+            if free_space_ranges[i] > 0:        # if space is free
                 if current_start_index is None: # if gap isn't started
                     current_start_index = i     # start gap
                 current_gap += 1                # add to gap length
@@ -101,8 +88,8 @@ class ReactiveFollowGap(Node):
                 if current_start_index is not None: # gap ended
                     if current_gap > max_gap:       # is it the largest gap?
                         max_gap = current_gap
-                        max_start_index = current_start_index
-                        max_end_index = i - 1  
+                        start_index = current_start_index
+                        end_index = i - 1  
                     current_start_index = None
                     current_gap = 0
         
@@ -110,12 +97,22 @@ class ReactiveFollowGap(Node):
         if current_start_index is not None:
             if current_gap > max_gap:
                 max_gap = current_gap
-                max_start_index = current_start_index
-                max_end_index = len(free_space_ranges) - 1
+                start_index = current_start_index
+                end_index = len(free_space_ranges) - 1
+
+        # IMPLEMENT GO STRAIGHT INSTEAD OF CRASHING WHEN NO GAP
+        # we only need this when we set mgv (max gap variable) to greater than 0
+        # it is neccisary because if there is no gap where everythings > mgv
+        # the function would provide -1, -1 and the program would crash 
+        if (start_index == -1 | end_index == -1):
+            start_index = 540
+            end_index = 540
+            print(f"------ OUCH OUCH OUCH OUCH OUCH -------")
         
-        print(f"gap from index {max_start_index} to {max_end_index} with length {max_gap}.")
-        print(f"{max_start_index}: {free_space_ranges[max_start_index]} {max_end_index}:{free_space_ranges[max_end_index]}.")
-        return (max_start_index, max_end_index)
+        # error checking 
+        print(f"gap from index {start_index} to {end_index} with length {max_gap}.")
+        print(f"{start_index}: {free_space_ranges[start_index]} {end_index}:{free_space_ranges[end_index]}.")
+        return (start_index, end_index)
       
     
     def find_best_point(self, start_i, end_i, ranges):
@@ -123,13 +120,21 @@ class ReactiveFollowGap(Node):
         Return index of best point in ranges
 	    Naive: Choose the furthest point within ranges and go there
         """
-        # check the passed are in range best_point = self.find_best_point(start_index, end_index, proc_ranges)
+        # check the passed are in range 
         if start_i < 270 or end_i > 810 or start_i > end_i:
+            print(f"\nERROR WHAT ERROR WHAT\n")
             return None
 
+        # we currently return the longest point
+        # within the index's passed (which should be the largest gap)
+        # the middle doesn't work very well. 
+        # why we might consider the middle - to "look ahead" 
+            # for example, in the top lefthand corner moving clockwise 
+            # the car sees the longest distance and heads for it thus crashing
         naive = start_i + np.argmax(ranges[start_i:end_i + 1])
-        # middle = (start_i + end_i) // 2  # choose the middle index?
-        print(f"best point at {naive}")
+        middle = (start_i + end_i) // 2  # choose the middle index?
+        print(f"naive best point at {naive}")
+        print(f"middle best point at {middle}")
         return naive
 
     def lidar_callback(self, data):
@@ -140,26 +145,33 @@ class ReactiveFollowGap(Node):
         # preprocess range data 
         proc_ranges = self.preprocess_lidar(ranges)
 
-        #Find closest point to LiDAR
-        # we WANT the index of the lowest non-zero value
-        # SO we change all the 0s to infinity, and then argmin THAT array. 
-        # the index's should be the same as proc_ranges array
+        # Find closest point to LiDAR
+        # we want the index of the lowest non-zero value
+        # we also want the index's of the array to remain the same 
+        # so we change the 0's to infinity, allowing us to search for 
+        # the lowest value thats non-zero
         searchable_arr = np.where(proc_ranges == 0, np.inf, proc_ranges)
         closest_index = np.argmin(searchable_arr)
 
+        # for testing
         print(f"closest index: {closest_index}")
         print(f"{closest_index}: {proc_ranges[closest_index]}")
 
-        #Eliminate all points inside 'bubble' (set them to zero) 
-        # bubble surrounds closest point
-        bubble_radius = .8
-        # DRAW BUBBLE 
-        bubble = int(bubble_radius / data.angle_increment) # how many scans to cover? 
-        start_idx = max(0, closest_index - bubble)
-        end_idx = min(810, closest_index + bubble + 1)
-        proc_ranges[start_idx:end_idx] = 0 # zero out everything in that bubble 
-        print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
+        # Eliminate all points inside 'bubble' (set them to zero) 
+        # we draw a bubble of length bubble_radius around the closest point
+        # by deciding how many scans to cover (ex .7/.1 = 7 scans)
+        # we then get the starting and ending index so that we can 
+        # 0 out everything in that bubble 
+        # if our index's arn't in range we just return left and right values
+        # bubble_radius should be a command line param. very important for tuning
+        bubble_radius = .7
+        bubble = int(bubble_radius / data.angle_increment) # how many scans to cover
+        start_idx = np.where(closest_index - bubble > 270, closest_index - bubble, 270)
+        end_idx = np.where(closest_index + bubble + 1 < 810, closest_index + bubble + 1, 810)
+        proc_ranges[start_idx:end_idx] = 0 
 
+        # for testing
+        print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
 
         #Find max length gap 
         start_index, end_index = self.find_max_gap(proc_ranges)
@@ -167,17 +179,24 @@ class ReactiveFollowGap(Node):
         #Find the best point in the gap 
         best_point = self.find_best_point(start_index, end_index, proc_ranges)
 
-        # chose middle point in largest gap 
-
         # disparity extend 
+        # not really working. 
         # if succesive lidar scans have a large disparity, extend the walls 
-
+        # iterate through laser scan. if one scan to the next exceeds the threshold
+        # take the smaller distance, and the farther index
+        # and overwrite the farther distance with the closer one (or 0?)
+        # threshold = 1   # the disparity threshold 
+        # extend = 7      # number of scans to overwrite
+        # for i in range(1, len(proc_ranges)):
+        #     if abs(proc_ranges[i] - proc_ranges[i - 1]) > threshold:
+        #         closer_distance = min(proc_ranges[i], proc_ranges[i - 1])
+        #         farther_index = i if proc_ranges[i] > proc_ranges[i - 1] else i - 1
+        #         proc_ranges[farther_index:farther_index + extend] = closer_distance
 
         # Calculate the drive angle
         angle = (data.angle_increment * best_point) + data.angle_min
 
         velocity = 0.8
-
 
         #Publish Drive message
         drive_msg = AckermannDriveStamped()
