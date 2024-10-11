@@ -92,7 +92,7 @@ class ReactiveFollowGap(Node):
 
         
         for i in range(len(free_space_ranges)):
-            if free_space_ranges[i] > 0:        # if space is free
+            if free_space_ranges[i] > .5:        # if space is free
                 if current_start_index is None: # if gap isn't started
                     current_start_index = i     # start gap
                 current_gap += 1                # add to gap length
@@ -152,12 +152,14 @@ class ReactiveFollowGap(Node):
 
         #Eliminate all points inside 'bubble' (set them to zero) 
         # bubble surrounds closest point
-        bubble_radius = .9
+        bubble_radius = .8
         # DRAW BUBBLE 
         bubble = int(bubble_radius / data.angle_increment) # how many scans to cover? 
         start_idx = max(0, closest_index - bubble)
         end_idx = min(810, closest_index + bubble + 1)
         proc_ranges[start_idx:end_idx] = 0 # zero out everything in that bubble 
+        print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
+
 
         #Find max length gap 
         start_index, end_index = self.find_max_gap(proc_ranges)
