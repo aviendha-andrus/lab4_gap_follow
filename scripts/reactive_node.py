@@ -131,11 +131,14 @@ class ReactiveFollowGap(Node):
         # why we might consider the middle - to "look ahead" 
             # for example, in the top lefthand corner moving clockwise 
             # the car sees the longest distance and heads for it thus crashing
-        naive = start_i + np.argmax(ranges[start_i:end_i + 1])
-        middle = (start_i + end_i) // 2  # choose the middle index?
-        print(f"naive best point at {naive}")
-        print(f"middle best point at {middle}")
-        return naive
+        # naive = start_i + np.argmax(ranges[start_i:end_i + 1])
+        # middle = (start_i + end_i) // 2  # choose the middle index?
+        # print(f"naive best point at {naive}")
+        # print(f"middle best point at {middle}")
+        # return naive
+	averaged_max_gap = np.convolve(ranges[start_i:end_i], np.ones(80),
+                                       'same') / 80
+        return averaged_max_gap.argmax() + start_i
 
     def lidar_callback(self, data):
         """ Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
@@ -164,7 +167,7 @@ class ReactiveFollowGap(Node):
         # 0 out everything in that bubble 
         # if our index's arn't in range we just return left and right values
         # bubble_radius should be a command line param. very important for tuning
-        bubble_radius = .7
+        bubble_radius = .4 # used to be .7
         bubble = int(bubble_radius / data.angle_increment) # how many scans to cover
         start_idx = np.where(closest_index - bubble > 270, closest_index - bubble, 270)
         end_idx = np.where(closest_index + bubble + 1 < 810, closest_index + bubble + 1, 810)
