@@ -126,24 +126,20 @@ class ReactiveFollowGap(Node):
         #     print(f"\nERROR WHAT ERROR WHAT\n")
         #     return None
 
-        # we currently return the longest point
         # within the index's passed (which should be the largest gap)
-        # the middle doesn't work very well. 
         # why we might consider the middle - to "look ahead" 
             # for example, in the top lefthand corner moving clockwise 
             # the car sees the longest distance and heads for it thus crashing
         # naive = start_i + np.argmax(ranges[start_i:end_i + 1])
-        # middle = (start_i + end_i) // 2  # choose the middle index?
         # print(f"naive best point at {naive}")
-        # print(f"middle best point at {middle}")
         # return naive
 
-        # add comments 
         averaged_max_gap = np.convolve(ranges[start_i:end_i], np.ones(80), 'same') / 80
-        print(f"best point at {averaged_max_gap.argmax() + start_i}")
+        print(f"\nbest point at {averaged_max_gap.argmax() + start_i}")
+        print(f"{averaged_max_gap.argmax() + start_i}: {ranges[averaged_max_gap.argmax() + start_i]}")
         return averaged_max_gap.argmax() + start_i
 
-
+    
     def lidar_callback(self, data):
         """ Process each LiDAR scan as per the Follow Gap algorithm & publish an AckermannDriveStamped Message
         """
@@ -161,7 +157,7 @@ class ReactiveFollowGap(Node):
         closest_index = np.argmin(searchable_arr)
 
         # for testing
-        print(f"closest index: {closest_index}")
+        print(f"\nclosest index: {closest_index}")
         print(f"{closest_index}: {proc_ranges[closest_index]}")
 
         # Eliminate all points inside 'bubble' (set them to zero) 
@@ -171,53 +167,65 @@ class ReactiveFollowGap(Node):
         # 0 out everything in that bubble 
         # if our index's arn't in range we just return left and right values
         # bubble_radius should be a command line param. very important for tuning
-        bubble_radius = .4 # used to be .7
-        bubble = int(bubble_radius / data.angle_increment) 
-        start_idx = np.where(closest_index - bubble > 270, closest_index - bubble, 270)
-        end_idx = np.where(closest_index + bubble + 1 < 810, closest_index + bubble + 1, 810)
-        proc_ranges[start_idx:end_idx] = 0 
 
-        # project out both ways by r 
-
-        # radious r 
-        # closest point 
-
-        # i - closest point 
-        # figure out the length in between each scan point 
-        # subtract that point from r 
-        
-
-
-
+        # bubble_radius = .4 # used to be .7
+        # bubble = int(bubble_radius / data.angle_increment) 
+        # start_idx = np.where(closest_index - bubble > 270, closest_index - bubble, 270)
+        # end_idx = np.where(closest_index + bubble + 1 < 810, closest_index + bubble + 1, 810)
+        # proc_ranges[start_idx:end_idx] = 0 
         # for testing
-        print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
+        # print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
 
+        ang_inc = data.angle_increment # angle incrment (given in radians)
+
+        radius = 2.0            # radius in meters
+        i = closest_index       # start closest index
+
+        print("\nbubbled left: [", end = "")
+        # left (small to large index)
+        while (radius > 0) and  i < 810 - 1:   #i < len(proc_ranges) -1:
+            # gather lengths of x using the law of cosines 
+
+            # c2=a2+b2−2ab⋅cos(C)  : our c is x
+            a = proc_ranges[i]     # length at current index
+            b = proc_ranges[i + 1] # length at next index (moving to the left -> positive)
+            squared = a*a + b*b - 2 * a * b * np.cos(ang_inc)
+            x = np.sqrt(squared)
+
+            # set data at index to 0
+            proc_ranges[i] = 0
+            print(f"{i},", end = "")
+
+            # loop updates
+            i = i + 1           # current index, current index + 1
+            radius = radius - x # remove x from radius (will close loop eventually)
+        print("]")
+
+        radius = 2.0
+        i = closest_index
+
+        print("\nbubbled right: [", end = "")
+        # right (larger to small index)
+        while (radius > 0) and i > 270: #i > 0: #    
+            # gather lengths of x using the law of cosines 
+
+            # c2=a2+b2−2ab⋅cos(C)  : our c is x
+            a = proc_ranges[i]     # length at current index
+            b = proc_ranges[i - 1] # length at next index (moving to the right -> negative)
+            squared = a**2 + b**2 - 2 * a * b * np.cos(ang_inc)
+            x = np.sqrt(squared)
+
+            # set data at index to 0
+            proc_ranges[i] = 0
+            print(f"{i},", end = "")
+
+            # loop updates
+            i = i - 1           # current index, current index + 1
+            radius = radius - x # remove x from radius (will close loop eventually)
+        print("]\n")
+    
         # disparity extend 
-        # not really working. 
         # if succesive lidar scans have a large disparity, extend the walls 
-        # iterate through laser scan. if one scan to the next exceeds the threshold
-        # take the smaller distance, and the farther index
-        # and overwrite the farther distance with the closer one (or 0?)
-
-        # right NOW the if statement never gets tripped 
-
-        # change algorithm so that I extend in the CORRECT direction 
-        # extend in the direction where the difference is larger 
-
-        # make sure i - extend and i + extend will be in range 
-        threshold = 0.5   # the disparity threshold 
-        extend = 5      # number of scans to overwrite
-        for i in range(1, len(proc_ranges)):
-            if abs(proc_ranges[i] - proc_ranges[i - 1]) > threshold:
-                if (proc_ranges[i] > proc_ranges[i - 1]): # if index [207] > [208]
-                    proc_ranges[i:i - extend] = proc_ranges[i-1]
-                else:
-                    proc_ranges[i - 1 - extend: i] = proc_ranges[i]
-
-                # closer_distance = min(proc_ranges[i], proc_ranges[i - 1])
-                # farther_index = i if proc_ranges[i] > proc_ranges[i - 1] else i - 1
-                # print(f"farther_index: {farther_index} [{proc_ranges[farther_index]}]), to, index: {farther_index + extend}")
-                # proc_ranges[farther_index:farther_index + extend] = closer_distance
 
         #Find max length gap 
         start_index, end_index = self.find_max_gap(proc_ranges)
