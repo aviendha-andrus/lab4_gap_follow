@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-
 import numpy as np
 from sensor_msgs.msg import LaserScan
 from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
+from std_msgs.msg import Bool
 
 class ReactiveFollowGap(Node):
     """ 
@@ -12,6 +13,7 @@ class ReactiveFollowGap(Node):
     """
     def __init__(self):
         super().__init__('reactive_node')
+        print("ReactiveFollowGap initialized")
         # Topics & Subs, Pubs
         lidarscan_topic = '/scan'
         drive_topic = '/drive'
@@ -24,6 +26,7 @@ class ReactiveFollowGap(Node):
             10
             )
         self.scan_subscription  
+        self.get_logger().info('Subscribed to /scan topic')
 
         # TODO: Publish to drive
         self.publisher_ = self.create_publisher(
@@ -33,6 +36,8 @@ class ReactiveFollowGap(Node):
             )
         
         # command line parameters 
+        self.bubble_arg = self.declare_parameter('bubble', 0.0).get_parameter_value()
+        self.maxvel_arg = self.declare_parameter('maxvel', 0.0).get_parameter_value()
 
     def preprocess_lidar(self, ranges):
         """ Preprocess the LiDAR scan array. Expert implementation includes:
@@ -237,7 +242,7 @@ class ReactiveFollowGap(Node):
         # Calculate the drive angle
         angle = (data.angle_increment * best_point) + data.angle_min
 
-        velocity = 0.0
+        velocity = 0.8
 
 
         #Publish Drive message
