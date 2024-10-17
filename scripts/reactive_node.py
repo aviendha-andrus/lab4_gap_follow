@@ -229,7 +229,7 @@ class ReactiveFollowGap(Node):
         # Calculate the drive angle
         angle = (data.angle_increment * best_point) + data.angle_min
 
-        velocity = 0.0
+        velocity = 0.8
 
 
         #Publish Drive message
