@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 
@@ -109,9 +110,9 @@ class ReactiveFollowGap(Node):
             end_index = 540
             print(f"------ OUCH OUCH OUCH OUCH OUCH -------")
         
-        # error checking 
-        print(f"gap from index {start_index} to {end_index} with length {max_gap}.")
-        print(f"{start_index}: {free_space_ranges[start_index]} {end_index}:{free_space_ranges[end_index]}.")
+        # ERROR CHECKING
+        # print(f"gap from index {start_index} to {end_index} with length {max_gap}.")
+        # print(f"{start_index}: {free_space_ranges[start_index]} {end_index}:{free_space_ranges[end_index]}.")
         return (start_index, end_index)
       
     
@@ -140,7 +141,9 @@ class ReactiveFollowGap(Node):
 
         # add comments 
         averaged_max_gap = np.convolve(ranges[start_i:end_i], np.ones(80), 'same') / 80
-        print(f"best point at {averaged_max_gap.argmax() + start_i}")
+        
+        # ERROR TESTING
+        # print(f"best point at {averaged_max_gap.argmax() + start_i}")
         return averaged_max_gap.argmax() + start_i
 
 
@@ -161,8 +164,9 @@ class ReactiveFollowGap(Node):
         closest_index = np.argmin(searchable_arr)
 
         # for testing
-        print(f"closest index: {closest_index}")
-        print(f"{closest_index}: {proc_ranges[closest_index]}")
+        # ERROR TESTING
+        # print(f"closest index: {closest_index}")
+        # print(f"{closest_index}: {proc_ranges[closest_index]}")
 
         # Eliminate all points inside 'bubble' (set them to zero) 
         # we draw a bubble of length bubble_radius around the closest point
@@ -189,8 +193,8 @@ class ReactiveFollowGap(Node):
 
 
 
-        # for testing
-        print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
+        # ERROR TESTING
+        # print(f"bubble: {np.arange(start_idx, end_idx)[proc_ranges[start_idx:end_idx] == 0]}")
 
         # disparity extend 
         # not really working. 
@@ -229,7 +233,7 @@ class ReactiveFollowGap(Node):
         # Calculate the drive angle
         angle = (data.angle_increment * best_point) + data.angle_min
 
-        velocity = 0.8
+        velocity = 2.0
 
 
         #Publish Drive message
