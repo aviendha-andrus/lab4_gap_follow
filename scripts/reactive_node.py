@@ -34,6 +34,17 @@ class ReactiveFollowGap(Node):
             )
         
         # command line parameters 
+        self.declare_parameter('b', 0.0)
+        self.declare_parameter('v', 0.0)
+
+        self.bubble_size = self.get_parameter('b').get_parameter_value().double_value
+        self.max_velocity = self.get_parameter('v').get_parameter_value().double_value
+
+        self.get_logger().info(f"Bubble size: {self.bubble_size}")
+        self.get_logger().info(f"Max velocity: {self.max_velocity}")
+
+        temp = self.get_parameter('b').get_parameter_value().double_value
+        self.get_logger().info(f"Bubble size: {temp}")
 
     def preprocess_lidar(self, ranges):
         """ Preprocess the LiDAR scan array. Expert implementation includes:
@@ -175,7 +186,7 @@ class ReactiveFollowGap(Node):
         # 0 out everything in that bubble 
         # if our index's arn't in range we just return left and right values
         # bubble_radius should be a command line param. very important for tuning
-        bubble_radius = .4 # used to be .7
+        bubble_radius = self.bubble_size # used to be .7
         bubble = int(bubble_radius / data.angle_increment) 
         start_idx = np.where(closest_index - bubble > 270, closest_index - bubble, 270)
         end_idx = np.where(closest_index + bubble + 1 < 810, closest_index + bubble + 1, 810)
@@ -233,7 +244,7 @@ class ReactiveFollowGap(Node):
         # Calculate the drive angle
         angle = (data.angle_increment * best_point) + data.angle_min
 
-        velocity = 2.0
+        velocity = self.max_velocity
 
 
         #Publish Drive message
@@ -245,7 +256,7 @@ class ReactiveFollowGap(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    print("WallFollow Initialized")
+    print("GapvFollow Initialized")
     reactive_node = ReactiveFollowGap()
     rclpy.spin(reactive_node)
 
