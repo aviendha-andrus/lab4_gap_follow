@@ -34,17 +34,14 @@ class ReactiveFollowGap(Node):
             )
         
         # command line parameters 
-        self.declare_parameter('b', 0.0)
-        self.declare_parameter('v', 0.0)
+        self.declare_parameter('bubble', 0.0)
+        self.declare_parameter('maxvel', 0.0)
 
-        self.bubble_size = self.get_parameter('b').get_parameter_value().double_value
-        self.max_velocity = self.get_parameter('v').get_parameter_value().double_value
+        self.bubble_size = self.get_parameter('bubble').get_parameter_value().double_value
+        self.max_velocity = self.get_parameter('maxvel').get_parameter_value().double_value
 
         self.get_logger().info(f"Bubble size: {self.bubble_size}")
         self.get_logger().info(f"Max velocity: {self.max_velocity}")
-
-        temp = self.get_parameter('b').get_parameter_value().double_value
-        self.get_logger().info(f"Bubble size: {temp}")
 
     def preprocess_lidar(self, ranges):
         """ Preprocess the LiDAR scan array. Expert implementation includes:
