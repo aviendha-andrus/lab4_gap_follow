@@ -217,14 +217,14 @@ class ReactiveFollowGap(Node):
         # extend in the direction where the difference is larger 
 
         # make sure i - extend and i + extend will be in range 
-        threshold = 0.5   # the disparity threshold 
-        extend = 5      # number of scans to overwrite
-        for i in range(1, len(proc_ranges)):
-            if abs(proc_ranges[i] - proc_ranges[i - 1]) > threshold:
-                if (proc_ranges[i] > proc_ranges[i - 1]): # if index [207] > [208]
-                    proc_ranges[i:i - extend] = proc_ranges[i-1]
-                else:
-                    proc_ranges[i - 1 - extend: i] = proc_ranges[i]
+        # threshold = 0.5   # the disparity threshold 
+        # extend = 5      # number of scans to overwrite
+        # for i in range(1, len(proc_ranges)):
+        #     if abs(proc_ranges[i] - proc_ranges[i - 1]) > threshold:
+        #         if (proc_ranges[i] > proc_ranges[i - 1]): # if index [207] > [208]
+        #             proc_ranges[i:i - extend] = proc_ranges[i-1]
+        #         else:
+        #             proc_ranges[i - 1 - extend: i] = proc_ranges[i]
 
                 # closer_distance = min(proc_ranges[i], proc_ranges[i - 1])
                 # farther_index = i if proc_ranges[i] > proc_ranges[i - 1] else i - 1
